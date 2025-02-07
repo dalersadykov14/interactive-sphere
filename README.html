@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive 3D Sphere</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <!-- Include Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // Scene Setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Create Wireframe Sphere
+    const geometry = new THREE.SphereGeometry(5, 32, 32); // Radius, widthSegments, heightSegments
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      wireframe: true
+    });
+    const sphere = new THREE.Mesh(geometry, material);
+    scene.add(sphere);
+
+    // Camera Position
+    camera.position.z = 15;
+
+    // Mouse Interaction
+    const mouse = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster();
+
+    // Event Listeners
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    function onMouseMove(event) {
+      event.preventDefault();
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      interactWithSphere();
+    }
+
+    function onTouchMove(event) {
+      event.preventDefault();
+      const touch = event.touches[0];
+      mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+      interactWithSphere();
+    }
+
+    function interactWithSphere() {
+      raycaster.setFromCamera(mouse, camera);
+
+      // Get vertices of the sphere
+      const positions = sphere.geometry.attributes.position.array;
+      for (let i = 0; i < positions.length; i += 3) {
+        const vertex = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+        const distance = vertex.distanceTo(raycaster.ray.origin);
+
+        // Pull vertices closer to the mouse
+        if (distance < 6) {
+          vertex.lerp(raycaster.ray.origin, 0.1); // Adjust pull strength here
+          positions[i] = vertex.x;
+          positions[i + 1] = vertex.y;
+          positions[i + 2] = vertex.z;
+        }
+      }
+
+      // Update the geometry
+      sphere.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Gradually reset vertices to their original positions
+      const positions = sphere.geometry.attributes.position.array;
+      for (let i = 0; i < positions.length; i += 3) {
+        const vertex = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+        const originalVertex = new THREE.Vector3(
+          sphere.geometry.parameters.radius * Math.sin((i / 3) % 32) * Math.cos(Math.floor(i / 96)),
+          sphere.geometry.parameters.radius * Math.sin((i / 3) % 32) * Math.sin(Math.floor(i / 96)),
+          sphere.geometry.parameters.radius * Math.cos((i / 3) % 32)
+        );
+        vertex.lerp(originalVertex, 0.02); // Reset speed
+        positions[i] = vertex.x;
+        positions[i + 1] = vertex.y;
+        positions[i + 2] = vertex.z;
+      }
+      sphere.geometry.attributes.position.needsUpdate = true;
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Handle Window Resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
